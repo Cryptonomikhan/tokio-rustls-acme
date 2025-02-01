@@ -1,6 +1,5 @@
 use crate::acme::ACME_TLS_ALPN_NAME;
-use crate::ResolvesServerCertAcme;
-use rustls::server::Acceptor;
+use rustls::server::{Acceptor, ResolvesServerCert};
 use rustls::ServerConfig;
 use std::future::Future;
 use std::io;
@@ -16,7 +15,7 @@ pub struct AcmeAcceptor {
 }
 
 impl AcmeAcceptor {
-    pub(crate) fn new(resolver: Arc<ResolvesServerCertAcme>) -> Self {
+    pub fn new(resolver: Arc<dyn ResolvesServerCert>) -> Self {
         let mut config = ServerConfig::builder()
             .with_no_client_auth()
             .with_cert_resolver(resolver);
@@ -25,6 +24,12 @@ impl AcmeAcceptor {
             config: Arc::new(config),
         }
     }
+
+    pub fn from_config(mut config: ServerConfig) -> Self {
+        config.alpn_protocols.push(ACME_TLS_ALPN_NAME.to_vec());
+        Self { config: Arc::new(config) }
+    }
+
     pub fn accept<IO: AsyncRead + AsyncWrite + Unpin>(&self, io: IO) -> AcmeAccept<IO> {
         AcmeAccept::new(io, self.config.clone())
     }
